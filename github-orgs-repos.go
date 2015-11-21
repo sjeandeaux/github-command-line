@@ -44,6 +44,7 @@ func main() {
 		fmt.Println("Name\tCloneURL\tGitURL\tSSHURL")
 		wg := new(sync.WaitGroup)
 
+                //TODO next page / empty result
 		for _,repo := range repos {
 			fmt.Printf("%s\t%s\t%s\t%s\n", *repo.Name, *repo.CloneURL,*repo.GitURL, *repo.SSHURL)
 			if(config.clone){
@@ -59,7 +60,7 @@ func main() {
 func clone(name string, cloneURL string, wg *sync.WaitGroup)  {
 
 	d := filepath.Join(config.directory, name)
-	//TODO check dirc
+	//TODO check directory exists, permission
 
 	cmd := exec.Command("git", "clone", cloneURL, d)
 	errCmd := cmd.Start()

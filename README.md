@@ -9,5 +9,10 @@ make docker-github-orgs-repos-build
 CloneURL	GitURL
 https://github.com/##YOUR ORGANIZATION##/p1.git	git://github.com/##YOUR ORGANIZATION##/p1.git
 https://github.com/##YOUR ORGANIZATION##/p2.git	git://github.com/##YOUR ORGANIZATION##/p2.git
+
+
+
+
+./github-orgs-repos -token="##YOUR TOKEN##" -organization="##YOUR ORGANIZATION##" -clone -directory=/directory
 ```
 
