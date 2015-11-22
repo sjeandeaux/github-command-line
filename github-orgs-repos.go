@@ -7,19 +7,19 @@ import (
 	"flag"
 	"os/exec"
 	"sync"
-    "path/filepath"
+	"path/filepath"
 )
 //Configuration Application
 type Config struct {
-	token string
+	token        string
 	organization string
-	clone bool
-	directory string
+	clone        bool
+	directory    string
 }
 
 var config = new(Config)
 
-func init(){
+func init() {
 	flag.StringVar(&config.token, "token", "", "The token (https://github.com/settings/tokens/new)")
 	flag.StringVar(&config.organization, "organization", "", "The organization")
 	flag.BoolVar(&config.clone, "clone", false, "True we clone in current directory")
@@ -35,29 +35,42 @@ func main() {
 	tc := oauth2.NewClient(oauth2.NoContext, ts)
 
 	client := github.NewClient(tc)
+	wg := new(sync.WaitGroup)
 
-	repos, _, err := client.Repositories.ListByOrg(config.organization, nil)
-	if err != nil {
-		fmt.Printf("error: %v\n\n", err)
-	} else {
+	fmt.Println("Name\tSSHURL")
 
-		fmt.Println("Name\tCloneURL\tGitURL\tSSHURL")
-		wg := new(sync.WaitGroup)
-
-                //TODO next page / empty result
-		for _,repo := range repos {
-			fmt.Printf("%s\t%s\t%s\t%s\n", *repo.Name, *repo.CloneURL,*repo.GitURL, *repo.SSHURL)
-			if(config.clone){
-
-			 clone(*repo.Name, *repo.SSHURL, wg)
-			}
-		}
-		wg.Wait()
+	for page := 1;page != 0; {
+		page,_ = listRepos(client, wg, page)
 	}
+	wg.Wait()
+
 
 }
 
-func clone(name string, cloneURL string, wg *sync.WaitGroup)  {
+func listRepos(client *github.Client, wg *sync.WaitGroup, page int) (int, error) {
+    var opt *github.RepositoryListByOrgOptions
+	if(page > 0){
+		opt = &github.RepositoryListByOrgOptions{"all", github.ListOptions{Page: page}}
+	} else {
+		opt = nil
+	}
+
+	repos, response, err := client.Repositories.ListByOrg(config.organization, opt)
+	if err != nil {
+		return 0, err
+	} else {
+		for _, repo := range repos {
+			fmt.Printf("%s\t%s\n", *repo.Name, *repo.SSHURL)
+			if (config.clone) {
+				clone(*repo.Name, *repo.SSHURL, wg)
+			}
+		}
+		return response.NextPage, nil
+	}
+}
+
+
+func clone(name string, cloneURL string, wg *sync.WaitGroup) {
 
 	d := filepath.Join(config.directory, name)
 	//TODO check directory exists, permission
