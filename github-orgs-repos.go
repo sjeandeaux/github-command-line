@@ -6,9 +6,17 @@ import (
 	"golang.org/x/oauth2"
 	"flag"
 	"os/exec"
+	"os/user"
+	"log"
 	"sync"
 	"path/filepath"
+	"io/ioutil"
 )
+const (
+	DotFile = ".github-command-line"
+)
+
+
 //Configuration Application
 type Config struct {
 	token        string
@@ -26,7 +34,21 @@ func init() {
 	flag.StringVar(&config.directory, "directory", "", "Where do we clone")
 	flag.Parse()
 	//TODO validate
+	readToken()
 }
+
+//read token from HOME/.github-command-line if -token is empty
+func readToken() {
+	if (config.token == "") {
+		usr, err := user.Current()
+		if err != nil {
+			log.Fatal(err)
+		}
+		value, _ := ioutil.ReadFile(filepath.Join(usr.HomeDir, DotFile))
+		config.token = string(value)
+	}
+}
+
 
 func main() {
 	ts := oauth2.StaticTokenSource(
@@ -39,8 +61,13 @@ func main() {
 
 	fmt.Println("Name\tSSHURL")
 
-	for page := 1;page != 0; {
-		page,_ = listRepos(client, wg, page)
+	var err error
+	var page int
+	for page, err = 1, nil; page != 0; {
+		page, err = listRepos(client, wg, page)
+		if (err != nil) {
+			log.Fatal(err)
+		}
 	}
 	wg.Wait()
 
@@ -48,8 +75,8 @@ func main() {
 }
 
 func listRepos(client *github.Client, wg *sync.WaitGroup, page int) (int, error) {
-    var opt *github.RepositoryListByOrgOptions
-	if(page > 0){
+	var opt *github.RepositoryListByOrgOptions
+	if (page > 0) {
 		opt = &github.RepositoryListByOrgOptions{"all", github.ListOptions{Page: page}}
 	} else {
 		opt = nil
