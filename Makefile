@@ -1,2 +1,5 @@
 github-orgs-repos-build:
-	go build -o github-orgs-repos github-orgs-repos.go
+	go build -o main.go
+
+github-orgs-repos-install:
+	go install
