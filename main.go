@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"os/user"
 	"path/filepath"
+	"sync"
 
 	"github.com/google/go-github/github"
 	"golang.org/x/oauth2"
@@ -63,17 +64,19 @@ func main() {
 
 	fmt.Println("Name\tSSHURL")
 
+	var wg sync.WaitGroup
 	var err error
 	var page int
 	for page, err = 1, nil; page != 0; {
-		page, err = listRepos(client, page)
+		page, err = listRepos(&wg, client, page)
 		if err != nil {
-			log.Fatal(err)
+			fmt.Printf("error")
 		}
 	}
+	wg.Wait()
 }
 
-func listRepos(client *github.Client, page int) (int, error) {
+func listRepos(wg *sync.WaitGroup, client *github.Client, page int) (int, error) {
 	var opt *github.RepositoryListByOrgOptions
 	if page > 0 {
 		opt = &github.RepositoryListByOrgOptions{Type: "all", ListOptions: github.ListOptions{Page: page}}
@@ -88,27 +91,33 @@ func listRepos(client *github.Client, page int) (int, error) {
 		for _, repo := range repos {
 			fmt.Printf("%s\t%s\n", *repo.Name, *repo.SSHURL)
 			if config.clone {
-				clone(*repo.Name, *repo.SSHURL)
+				clone(wg, *repo.Name, *repo.SSHURL)
 			}
 		}
 		return response.NextPage, nil
 	}
 }
 
-func clone(name string, cloneURL string) {
+func clone(wg *sync.WaitGroup, name string, cloneURL string) {
 
+	wg.Add(1)
 	d := filepath.Join(config.directory, name)
 	//TODO check directory exists, permission
 
 	cmd := exec.Command("git", "clone", cloneURL, d)
-	errCmd := cmd.Start()
-	if errCmd != nil {
-		fmt.Printf("error: %v\n\n", errCmd)
-	}
-	err := cmd.Wait()
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Printf("%s\t%s done\n", name, cloneURL)
+
+	go func(wg *sync.WaitGroup) {
+		errCmd := cmd.Start()
+		defer wg.Done()
+		if errCmd != nil {
+			fmt.Printf("error: %v\n\n", errCmd)
+		}
+		err := cmd.Wait()
+		if err != nil {
+			fmt.Printf("error")
+		}
+		fmt.Printf("%s\t%s done\n", name, cloneURL)
+
+	}(wg)
 
 }
