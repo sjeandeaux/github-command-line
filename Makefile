@@ -1,5 +1,9 @@
-github-orgs-repos-build:
-	go build -o main.go
+deps:
+	go get github.com/google/go-github/github
+	go get golang.org/x/oauth2
 
-github-orgs-repos-install:
+build:deps
+	go build main.go
+
+install:deps
 	go install
