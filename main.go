@@ -7,9 +7,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"os"
 	"os/exec"
 	"os/user"
 	"path/filepath"
+	"runtime"
 	"sync"
 
 	"github.com/google/go-github/github"
@@ -55,6 +57,8 @@ func readToken() {
 }
 
 func main() {
+	runtime.GOMAXPROCS(runtime.NumCPU())
+
 	ts := oauth2.StaticTokenSource(
 		&oauth2.Token{AccessToken: config.Token},
 	)
@@ -70,7 +74,7 @@ func main() {
 	for page, err = 1, nil; page != 0; {
 		page, err = listRepos(&wg, client, page)
 		if err != nil {
-			fmt.Printf("error")
+			fmt.Printf("%s", err)
 		}
 	}
 	wg.Wait()
@@ -100,24 +104,26 @@ func listRepos(wg *sync.WaitGroup, client *github.Client, page int) (int, error)
 
 func clone(wg *sync.WaitGroup, name string, cloneURL string) {
 
-	wg.Add(1)
 	d := filepath.Join(config.directory, name)
-	//TODO check directory exists, permission
+	if _, err := os.Stat(d); os.IsNotExist(err) {
+		wg.Add(1)
+		cmd := exec.Command("git", "clone", cloneURL, d)
 
-	cmd := exec.Command("git", "clone", cloneURL, d)
+		go func(wg *sync.WaitGroup) {
+			errCmd := cmd.Start()
+			defer wg.Done()
+			if errCmd != nil {
+				fmt.Printf("error: %v\n\n", errCmd)
+			}
+			err := cmd.Wait()
+			if err != nil {
+				fmt.Printf("%s", err)
+			}
+			fmt.Printf("%s\t%s done\n", name, cloneURL)
 
-	go func(wg *sync.WaitGroup) {
-		errCmd := cmd.Start()
-		defer wg.Done()
-		if errCmd != nil {
-			fmt.Printf("error: %v\n\n", errCmd)
-		}
-		err := cmd.Wait()
-		if err != nil {
-			fmt.Printf("error")
-		}
-		fmt.Printf("%s\t%s done\n", name, cloneURL)
-
-	}(wg)
+		}(wg)
+	} else {
+		fmt.Printf("%s\t%s exists\n", name, cloneURL)
+	}
 
 }
