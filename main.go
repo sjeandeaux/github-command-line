@@ -19,10 +19,11 @@ import (
 )
 
 const (
+	//DotFile The file in HOME user
 	DotFile = ".github-command-line"
 )
 
-//Configuration Application
+//Config Configuration Application
 type Config struct {
 	Token        string
 	organization string
@@ -66,7 +67,7 @@ func main() {
 
 	client := github.NewClient(tc)
 
-	fmt.Println("Name\tSSHURL")
+	fmt.Println("Name\t\t\t\t\tclone url")
 
 	var wg sync.WaitGroup
 	var err error
@@ -91,23 +92,30 @@ func listRepos(wg *sync.WaitGroup, client *github.Client, page int) (int, error)
 	repos, response, err := client.Repositories.ListByOrg(context.Background(), config.organization, opt)
 	if err != nil {
 		return 0, err
-	} else {
-		for _, repo := range repos {
-			fmt.Printf("%s\t%s\n", *repo.Name, *repo.SSHURL)
-			if config.clone {
-				clone(wg, *repo.Name, *repo.SSHURL)
-			}
-		}
-		return response.NextPage, nil
 	}
+	//clone all repositories
+	for _, repo := range repos {
+		p := Project{name: *repo.Name, cloneURL: *repo.SSHURL}
+		fmt.Printf("%q\t\t\t\t\t%q\n", p.name, p.cloneURL)
+		if config.clone {
+			p.clone(wg)
+		}
+	}
+	return response.NextPage, nil
 }
 
-func clone(wg *sync.WaitGroup, name string, cloneURL string) {
+//Project the name and url to clone
+type Project struct {
+	name     string
+	cloneURL string
+}
 
-	d := filepath.Join(config.directory, name)
+func (p Project) clone(wg *sync.WaitGroup) {
+
+	d := filepath.Join(config.directory, p.name)
 	if _, err := os.Stat(d); os.IsNotExist(err) {
 		wg.Add(1)
-		cmd := exec.Command("git", "clone", cloneURL, d)
+		cmd := exec.Command("git", "clone", p.cloneURL, d)
 
 		go func(wg *sync.WaitGroup) {
 			errCmd := cmd.Start()
@@ -119,11 +127,11 @@ func clone(wg *sync.WaitGroup, name string, cloneURL string) {
 			if err != nil {
 				fmt.Printf("%s", err)
 			}
-			fmt.Printf("%s\t%s done\n", name, cloneURL)
+			fmt.Printf("%q\t\t\t\t\t%q done\n", p.name, p.cloneURL)
 
 		}(wg)
 	} else {
-		fmt.Printf("%s\t%s exists\n", name, cloneURL)
+		fmt.Printf("%q\t\t\t\t\t%q exists\n", p.name, p.cloneURL)
+		//TODO stash and pull
 	}
-
 }
